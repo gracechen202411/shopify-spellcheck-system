@@ -1,7 +1,8 @@
 import { 
-  extractTextWithGoogleVision, 
+  extractTextFromImage, 
   extractTextWithGoogleVisionDetailed,
-  testGoogleVisionConnection 
+  testGoogleVisionConnection,
+  extractTextFromMultipleImages
 } from './ocr-google';
 
 // 使用示例
@@ -17,7 +18,7 @@ export async function exampleUsage() {
 
     // 2. 简单文本提取
     const imageUrl = 'https://example.com/french-product-image.jpg';
-    const simpleText = await extractTextWithGoogleVision(imageUrl);
+    const simpleText = await extractTextFromImage(imageUrl);
     console.log('提取的文本:', simpleText);
 
     // 3. 详细文本提取

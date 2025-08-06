@@ -333,3 +333,128 @@ npm install
 ---
 
 **注意**: 生产环境部署前，请确保所有敏感信息（API密钥等）已正确配置，并启用 HTTPS。 
+
+# Railway 部署指南
+
+## 🚀 部署到 Railway
+
+### 1. 环境变量配置
+
+在 Railway 项目设置中配置以下环境变量：
+
+```env
+# 应用基础配置
+NODE_ENV=production
+PORT=3000
+
+# Shopify 相关
+SHOPIFY_API_KEY=your_shopify_api_key
+SHOPIFY_API_SECRET=your_shopify_api_secret
+SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
+SHOPIFY_ACCESS_TOKEN=your_shopify_access_token
+SHOPIFY_WEBHOOK_SECRET=your_webhook_secret
+
+# OCR 相关
+OPENAI_API_KEY=your_openai_api_key
+GOOGLE_APPLICATION_CREDENTIALS=google-credentials.json
+TESSERACT_LANGS=eng+chi_sim
+
+# 飞书通知
+FEISHU_APP_ID=your_feishu_app_id
+FEISHU_APP_SECRET=your_feishu_app_secret
+FEISHU_WEBHOOK_URL=your_feishu_webhook_url
+
+# 数据库配置
+DATABASE_URL=file:./dev.db
+
+# OpenRouter API (用于 ChatGPT-4o)
+OPENROUTER_API_KEY=your_openrouter_api_key
+```
+
+### 2. Railway 启动命令
+
+Railway 会自动检测 Next.js 项目并使用以下启动命令：
+
+```bash
+npm run build && npm start
+```
+
+### 3. 数据库配置
+
+#### 选项 A: 使用 SQLite (当前配置)
+- 确保 `DATABASE_URL=file:./dev.db`
+- Railway 会自动创建数据库文件
+
+#### 选项 B: 迁移到 PostgreSQL (推荐)
+1. 在 Railway 中创建 PostgreSQL 数据库
+2. 更新 `DATABASE_URL` 为 PostgreSQL 连接字符串
+3. 运行数据库迁移：
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+### 4. 文件上传
+
+确保以下文件上传到 Railway：
+- `google-credentials.json` (Google Cloud Vision 凭证)
+- `*.traineddata` (Tesseract 语言文件)
+
+### 5. 部署步骤
+
+1. **连接 GitHub 仓库**
+   - 在 Railway 中创建新项目
+   - 选择 "Deploy from GitHub repo"
+   - 选择你的项目仓库
+
+2. **配置环境变量**
+   - 在 Railway 项目设置中添加所有必需的环境变量
+   - 确保敏感信息（API Keys）正确配置
+
+3. **部署**
+   - Railway 会自动检测 Next.js 项目
+   - 使用 `npm run build && npm start` 启动
+   - 等待部署完成
+
+4. **验证部署**
+   - 访问 Railway 提供的域名
+   - 测试各个功能页面：
+     - `/` - 首页
+     - `/workflow-test` - 工作流测试
+     - `/ocr-test` - OCR 测试
+     - `/dashboard` - 检查记录
+
+### 6. 自定义域名 (可选)
+
+在 Railway 项目设置中可以配置自定义域名。
+
+### 7. 监控和日志
+
+- 在 Railway 控制台查看应用日志
+- 监控应用性能和错误
+
+## 🔧 故障排除
+
+### 常见问题
+
+1. **构建失败**
+   - 检查环境变量是否完整
+   - 查看构建日志中的错误信息
+
+2. **数据库连接失败**
+   - 确认 `DATABASE_URL` 格式正确
+   - 检查数据库权限
+
+3. **OCR 功能异常**
+   - 确认 Google Cloud Vision 凭证文件存在
+   - 检查 API Keys 是否有效
+
+4. **飞书通知失败**
+   - 验证飞书 Webhook URL 格式
+   - 检查飞书应用权限
+
+## 📝 注意事项
+
+- 确保所有敏感信息通过环境变量配置
+- 定期备份数据库数据
+- 监控应用性能和资源使用情况
+- 及时更新依赖包版本 

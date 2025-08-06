@@ -1,6 +1,6 @@
 'use client';
 
-import { DebugResult } from '@/app/debug/upload/page';
+import { DebugResult } from '@/lib/types';
 
 interface ResultViewerProps {
   result: DebugResult | null;

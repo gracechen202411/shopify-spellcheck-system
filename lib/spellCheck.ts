@@ -17,61 +17,76 @@ export interface SpellCheckResult {
   confidence: number;
 }
 
-export async function performSpellCheck(
-  title: string,
-  description: string,
-  imageText: string
-): Promise<SpellCheckResult> {
-  try {
-    console.log('开始使用GPT-4o进行拼写检查...');
-    
-    const combinedText = `
-产品标题: ${title}
-产品描述: ${description}
-图片文字: ${imageText}
-    `.trim();
+export async function performSpellCheck(title: string, body_html: string, ocr_text: string) {
+  const prompt = `
+你是一位专业的电商内容审核专家，擅长多语言环境下的产品信息检查（支持英文、法文、德文）。
+请你阅读并理解以下 Shopify 产品内容，自动识别其中的语言，并判断是否存在拼写、语法、用词或格式等方面的问题。
 
-    const promptText = `
-请仔细分析以下产品信息，检查是否存在拼写错误、语法错误或其他明显问题。
-支持英文、法文、德文等多种语言的检查。
+🧠 请深入理解内容的含义，确保表达自然、准确、专业。
+🌐 内容可能为英文、法文、德文，或它们的混合，请你自动识别语言并合理判断表达是否正确。
 
-${combinedText}
+🔍【检查范围】
+1. 产品标题（title）
+2. 产品描述（body_html）
+3. 图片文字识别结果（ocr_text）
 
-请按以下JSON格式返回分析结果：
+📝【输出格式】
+- 只返回**标准JSON**，不要输出任何解释、说明、代码块标记或多余内容。
+- JSON结构如下：
 {
   "hasIssues": true/false,
   "issues": [
     {
-      "type": "spelling/grammar/punctuation",
-      "location": "title/description/image_text",
-      "original": "原始内容",
+      "type": "拼写/语法/用词/格式",
+      "original": "原文片段",
       "suggestion": "建议修改",
-      "line": 行号,
-      "column": 列号
+      "explanation": "中文说明"
     }
   ],
-  "overallQuality": "excellent/good/needs_improvement/poor",
-  "summary": "总体评价",
-  "confidence": 0.95
+  "overallQuality": "整体质量评价",
+  "summary": "简要总结",
+  "confidence": 0-1
+}
+- 如果所有内容都没有明显问题，返回：
+{
+  "hasIssues": false,
+  "issues": [],
+  "overallQuality": "good",
+  "summary": "无明显错误 / No major issues found.",
+  "confidence": 1
 }
 
-只返回JSON格式，不要其他内容。
+📦【待审核内容】
+
+产品标题（Product Title）：
+${title}
+
+产品描述（Product Description）：
+${body_html}
+
+图片文字（OCR Text from Image）：
+${ocr_text}
 `;
 
-    const resultText = await callGpt4oWithText(promptText);
-    const result = JSON.parse(resultText) as SpellCheckResult;
+  // 调用AI接口
+  const aiResponse = await callGpt4oWithText(prompt);
 
-    console.log('GPT-4o拼写检查完成，发现问题数量:', result.issues.length);
-    return result;
+  // 自动清洗AI返回内容，去除代码块标记和多余空行
+  let clean = aiResponse.trim();
+  clean = clean.replace(/^```json|^```|```$/gm, '').trim();
 
-  } catch (error) {
-    console.error('GPT-4o拼写检查失败:', error);
-    return {
+  let result;
+  try {
+    result = JSON.parse(clean);
+  } catch (e) {
+    // 兜底：返回一个默认对象，并记录原始内容
+    result = {
       hasIssues: false,
       issues: [],
-      overallQuality: 'good',
-      summary: '分析过程中出现错误',
-      confidence: 0,
+      overallQuality: 'unknown',
+      summary: 'AI返回非JSON: ' + clean,
+      confidence: 0
     };
   }
+  return result;
 } 

@@ -176,9 +176,21 @@ GET /api/dashboard/results
 3. 检查账户配额和计费
 
 ### 数据库连接失败
-1. 确认 `DATABASE_URL` 环境变量已设置
-2. 运行 `npx prisma db push` 同步数据库
-3. 检查SQLite文件权限
+1. **检查环境变量配置**：确认 `.env.local` 文件中的 `DATABASE_URL` 格式正确
+   - 本地开发：`DATABASE_URL="file:./dev.db"`
+   - 生产环境：`DATABASE_URL="postgresql://username:password@host:port/database"`
+2. **常见配置错误**：
+   - ❌ `DATABASE_URL=DATABASE_URL="file:./dev.db"` (重复变量名)
+   - ✅ `DATABASE_URL="file:./dev.db"` (正确格式)
+3. **数据库提供者匹配**：确保 `prisma/schema.prisma` 中的 provider 与 DATABASE_URL 匹配
+   - SQLite: `provider = "sqlite"`
+   - PostgreSQL: `provider = "postgresql"`
+4. **初始化数据库**：
+   ```bash
+   export DATABASE_URL="file:./dev.db"
+   npx prisma db push
+   ```
+5. **Railway部署问题**：如果错误显示 `postgres.railway.internal:5432`，说明本地环境使用了生产环境的数据库配置，需要修改 `.env.local` 文件
 
 ## 🔮 后续扩展
 
@@ -200,4 +212,4 @@ MIT License
 
 ---
 
-**注意**: 使用前请确保已正确配置所有必需的环境变量，特别是 OpenRouter API Key 和飞书 Webhook URL。 
+**注意**: 使用前请确保已正确配置所有必需的环境变量，特别是 OpenRouter API Key 和飞书 Webhook URL。

@@ -39,7 +39,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (!isVerified) {
     console.error('❌ HMAC 校验失败');
     return res.status(401).send('Unauthorized');
-  }
+    }
 
   // 校验通过，进入业务逻辑
   let product;
@@ -49,21 +49,21 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   } catch (e) {
     console.error('Webhook数据解析失败:', e);
     return res.status(400).send('Invalid JSON');
-  }
+    }
 
   // 1. 提取产品信息
-  const productData = {
-    id: product.id,
-    title: product.title,
-    body_html: product.body_html || '',
-    image_src: product.images?.[0]?.src || '',
-    created_at: product.created_at,
+    const productData = {
+      id: product.id,
+      title: product.title,
+      body_html: product.body_html || '',
+      image_src: product.images?.[0]?.src || '',
+      created_at: product.created_at,
     shop_domain: product.vendor || '' // 可根据实际需求调整
   };
 
   // 2. OCR图片文字识别
-  let ocrText = '';
-  if (productData.image_src) {
+    let ocrText = '';
+    if (productData.image_src) {
     try {
       const ocrResult = await extractTextFromImageSmart(productData.image_src);
       ocrText = ocrResult.text;
@@ -95,14 +95,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   }
 
   // 4. 有问题推送飞书
-  if (spellCheckResult.hasIssues) {
+    if (spellCheckResult.hasIssues) {
     try {
       await sendFeishuNotification(productData, spellCheckResult, ocrText);
       console.log('已推送飞书通知');
     } catch (e) {
       console.error('飞书通知失败:', e);
     }
-  }
+    }
 
   // 5. 保存检查结果
   try {

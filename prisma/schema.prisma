@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,20 +11,20 @@ datasource db {
 }
 
 model ProductCheck {
-  id          String   @id @default(cuid())
+  id          Int      @id @default(autoincrement())
   shopifyId   String   @unique
   title       String
   description String?
   imageUrl    String?
-  createdAt   DateTime @default(now())
-
-  hasIssues   Boolean  @default(false)
+  hasIssues   Boolean
   issueCount  Int      @default(0)
-  quality     String   @default("pending")
-
-  issues      String?  // 改为 String，存储 JSON 字符串
+  quality     String   // 'good', 'needs_improvement', 'poor'
+  issues      String   // JSON string of issues array
   ocrText     String?
   summary     String?
-
   notified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("product_checks")
 }

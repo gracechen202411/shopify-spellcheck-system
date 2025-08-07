@@ -13,7 +13,8 @@ export interface ProductData {
 export async function sendFeishuNotification(
   productData: ProductData,
   spellCheckResult: SpellCheckResult,
-  ocrText: string
+  ocrText: string,
+  forceNotify: boolean = false
 ): Promise<boolean> {
   try {
     const webhookUrl = process.env.FEISHU_WEBHOOK_URL;
@@ -23,9 +24,16 @@ export async function sendFeishuNotification(
     }
 
     // 构建问题列表
-    const issuesList = spellCheckResult.issues.map((issue, index) => 
-      `${index + 1}. **${issue.type}** (${issue.location}): \`${issue.original}\` → \`${issue.suggestion}\``
-    ).join('\n');
+    const issuesList = spellCheckResult.issues.length > 0 
+      ? spellCheckResult.issues.map((issue, index) => 
+          `${index + 1}. **${issue.type}** (${issue.location}): \`${issue.original}\` → \`${issue.suggestion}\``
+        ).join('\n')
+      : '✅ 未发现拼写或语法问题';
+
+    // 根据是否有问题决定卡片样式
+    const hasIssues = spellCheckResult.hasIssues;
+    const cardTemplate = hasIssues ? "red" : "green";
+    const cardTitle = hasIssues ? "🚨 Shopify产品拼写检查报告" : "✅ Shopify产品检查完成";
 
     // 构建飞书消息卡片
     const message = {
@@ -37,9 +45,9 @@ export async function sendFeishuNotification(
         header: {
           title: {
             tag: "plain_text",
-            content: "🚨 Shopify产品拼写检查报告"
+            content: cardTitle
           },
-          template: "red"
+          template: cardTemplate
         },
         elements: [
           {
@@ -53,14 +61,14 @@ export async function sendFeishuNotification(
             tag: "div",
             text: {
               tag: "lark_md",
-              content: `**总体质量:** ${spellCheckResult.overallQuality}\n**发现问题:** ${spellCheckResult.issues.length} 个`
+              content: `**总体质量:** ${spellCheckResult.overallQuality}\n**发现问题:** ${spellCheckResult.issues.length} 个\n**检查状态:** ${hasIssues ? '发现问题需要处理' : '质量良好无需处理'}`
             }
           },
           {
             tag: "div",
             text: {
               tag: "lark_md",
-              content: `**问题详情:**\n${issuesList}`
+              content: `**检查详情:**\n${issuesList}`
             }
           },
           {
@@ -74,7 +82,7 @@ export async function sendFeishuNotification(
             tag: "div",
             text: {
               tag: "lark_md",
-              content: `**检查时间:** ${new Date().toLocaleString('zh-CN')}`
+              content: `**检查时间:** ${new Date().toLocaleString('zh-CN')}\n**检查摘要:** ${spellCheckResult.summary || '检查完成'}`
             }
           },
           {
@@ -86,7 +94,7 @@ export async function sendFeishuNotification(
                   tag: "plain_text",
                   content: "查看产品"
                 },
-                type: "primary",
+                type: hasIssues ? "danger" : "primary",
                 url: `https://${productData.shop_domain}/admin/products/${productData.id}`
               }
             ]

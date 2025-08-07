@@ -10,38 +10,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { imageUrl, title, bodyHtml } = req.body;
+    const { shopifyUrl } = req.body;
 
-    if (!imageUrl) {
-      return res.status(400).json({ error: 'Missing imageUrl parameter' });
+    if (!shopifyUrl) {
+      return res.status(400).json({ error: 'Missing shopifyUrl parameter' });
     }
 
-    console.log('=== 开始测试完整工作流 ===');
-    console.log('测试图片URL:', imageUrl);
-    console.log('产品标题:', title || '无标题');
-    console.log('产品描述:', bodyHtml || '无描述');
+    console.log('=== 开始Shopify URL测试 ===');
+    console.log('Shopify URL:', shopifyUrl);
 
-    // 模拟产品数据
+    // 从URL中提取产品信息（这里简化处理，实际应该调用Shopify API）
+    const urlParts = shopifyUrl.split('/');
+    const productId = urlParts[urlParts.length - 1] || 'unknown';
+    const shopDomain = urlParts[2] || 'unknown-shop.myshopify.com';
+
+    // 模拟产品数据（实际应该从Shopify API获取）
     const productData = {
-      id: 'test-product-123',
-      title: title || 'Test Product',
-      body_html: bodyHtml || '',
-      image_src: imageUrl,
+      id: productId,
+      title: 'Shopify测试产品 - 高质量T恤衫',
+      body_html: '<p>这是一件高质量的T恤衫，采用100%纯棉材质制作。舒适透气，适合日常穿着。</p>',
+      image_src: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=600&fit=crop',
       created_at: new Date().toISOString(),
-      shop_domain: 'test-shop.myshopify.com'
+      shop_domain: shopDomain
     };
+
+    console.log('📦 模拟产品数据:', {
+      id: productData.id,
+      title: productData.title,
+      shop: productData.shop_domain
+    });
 
     let ocrText = '';
     let ocrProvider = '';
 
-    // 步骤1: 使用智能OCR工具从图片中提取文字（优先使用ChatGPT-4o）
+    // 步骤1: 使用智能OCR工具从图片中提取文字
     if (productData.image_src) {
       console.log('🔄 步骤1: 开始智能OCR提取图片文字...');
-      const ocrResult = await extractTextFromImageSmart(productData.image_src);
-      ocrText = ocrResult.text;
-      ocrProvider = ocrResult.provider;
-      console.log(`✅ OCR提取完成 (使用${ocrResult.provider})`);
-      console.log(`📝 识别文字内容:`, ocrText);
+      try {
+        const ocrResult = await extractTextFromImageSmart(productData.image_src);
+        ocrText = ocrResult.text;
+        ocrProvider = ocrResult.provider;
+        console.log(`✅ OCR提取完成 (使用${ocrResult.provider})`);
+        console.log(`📝 识别文字内容:`, ocrText);
+      } catch (ocrError) {
+        console.error('❌ OCR提取失败:', ocrError);
+        ocrText = '图片文字提取失败';
+        ocrProvider = 'failed';
+      }
     }
 
     // 步骤2: 使用GPT-4o进行拼写检查
@@ -72,28 +87,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 步骤4: 保存结果到数据库
     console.log('🔄 步骤4: 保存结果到数据库...');
+    let databaseSaved = false;
     try {
       await saveCheckResult(productData, spellCheckResult, ocrText);
       console.log('✅ 数据库保存成功');
+      databaseSaved = true;
     } catch (dbError) {
       console.error('❌ 数据库保存失败:', dbError);
     }
 
-    console.log('=== 完整工作流测试完成 ===');
+    console.log('=== Shopify URL测试完成 ===');
 
     res.status(200).json({
       success: true,
-      message: '完整工作流测试完成',
+      message: 'Shopify URL测试完成',
       data: {
+        input: {
+          shopifyUrl,
+          extractedProductId: productId,
+          extractedShopDomain: shopDomain
+        },
         product: {
           id: productData.id,
           title: productData.title,
-          imageUrl: productData.image_src
+          imageUrl: productData.image_src,
+          shopDomain: productData.shop_domain
         },
         ocr: {
           provider: ocrProvider,
           text: ocrText,
-          textLength: ocrText.length
+          textLength: ocrText.length,
+          success: ocrProvider !== 'failed'
         },
         spellCheck: {
           hasIssues: spellCheckResult.hasIssues,
@@ -104,16 +128,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           summary: spellCheckResult.summary
         },
         workflow: {
-          ocrCompleted: true,
+          ocrCompleted: ocrProvider !== 'failed',
           spellCheckCompleted: true,
           notificationSent: notificationSent,
-          databaseSaved: true
+          databaseSaved: databaseSaved
         }
       }
     });
 
   } catch (error) {
-    console.error('❌ 工作流测试失败:', error);
+    console.error('❌ Shopify URL测试失败:', error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

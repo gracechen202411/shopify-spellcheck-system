@@ -53,7 +53,7 @@ export async function getCheckResults(limit: number = 50) {
 }
 
 // 新增：根据ID获取单个检查结果
-export async function getCheckResultById(id: string) {
+export async function getCheckResultById(id: number) {
   try {
     const result = await prisma.productCheck.findUnique({
       where: { id }

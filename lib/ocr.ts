@@ -75,19 +75,8 @@ export async function extractTextFromImageWithChatGPT4o(imageUrl: string): Promi
   try {
     console.log('开始ChatGPT-4o OCR处理:', imageUrl);
     
-    const prompt = `You are an OCR (Optical Character Recognition) system. Your task is to extract and transcribe all visible text from the provided image.
-
-Instructions:
-1. Identify and extract ALL visible text in the image
-2. Maintain the original text order and layout
-3. Preserve the exact spelling and case of the text
-4. If the text is in French, German, or any other language, transcribe it exactly as shown
-5. Include decorative text, labels, signs, and any other written content
-6. Return ONLY the extracted text, no explanations or comments
-7. If there are multiple lines, separate them with line breaks
-8. Do not add any interpretation or translation
-
-Please extract and return all text visible in this image:`;
+    // 简化prompt，避免被误判
+    const prompt = `Please read and transcribe all text visible in this image. Return only the text content, exactly as it appears.`;
 
     const text = await callGpt4oWithImage({
       imageUrl,
@@ -120,7 +109,15 @@ export async function extractTextFromImageSmart(imageUrl: string): Promise<OCRRe
   if (process.env.OPENROUTER_API_KEY) {
     try {
       console.log('尝试使用ChatGPT-4o进行OCR...');
-      return await extractTextFromImageWithChatGPT4o(imageUrl);
+      const result = await extractTextFromImageWithChatGPT4o(imageUrl);
+      
+      // 检查是否返回了拒绝消息
+      if (result.text.includes("I'm sorry") || result.text.includes("I can't") || result.text.length < 10) {
+        console.log('ChatGPT-4o返回拒绝消息或结果过短，切换到Google Vision...');
+        throw new Error('ChatGPT-4o refused or returned insufficient content');
+      }
+      
+      return result;
     } catch (error) {
       console.log('ChatGPT-4o失败，尝试Google Cloud Vision...');
     }
@@ -129,6 +126,7 @@ export async function extractTextFromImageSmart(imageUrl: string): Promise<OCRRe
   // 其次使用Google Cloud Vision（如果配置了）
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     try {
+      console.log('使用Google Cloud Vision进行OCR...');
       return await extractTextFromImageWithGoogleVision(imageUrl);
     } catch (error) {
       console.log('Google Cloud Vision失败，回退到Tesseract');
@@ -136,5 +134,6 @@ export async function extractTextFromImageSmart(imageUrl: string): Promise<OCRRe
   }
   
   // 最后回退到Tesseract
+  console.log('使用Tesseract进行OCR...');
   return await extractTextFromImage(imageUrl);
 } 

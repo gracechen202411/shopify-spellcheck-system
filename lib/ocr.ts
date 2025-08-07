@@ -16,7 +16,7 @@ export async function extractTextFromImage(imageUrl: string): Promise<OCRResult>
     
     const result = await Tesseract.recognize(
       imageUrl,
-      'eng+fra+deu',
+      'eng+fra+deu+chi_sim', // 添加中文支持
       {
         logger: m => {
           if (m.status === 'recognizing text') {
@@ -26,8 +26,17 @@ export async function extractTextFromImage(imageUrl: string): Promise<OCRResult>
       }
     );
 
-    const extractedText = result.data.text.trim();
+    let extractedText = result.data.text.trim();
+    
+    // 文本后处理：清理和格式化
+    extractedText = extractedText
+      .replace(/\s+/g, ' ') // 将多个空格替换为单个空格
+      .replace(/\n\s*\n/g, '\n') // 清理多余的换行
+      .replace(/[^\w\s.,!?():;"\'-]/g, '') // 移除特殊字符，保留基本标点
+      .trim();
+    
     console.log('Tesseract OCR提取完成，文字长度:', extractedText.length);
+    console.log('Tesseract OCR结果预览:', extractedText.substring(0, 100));
     
     return {
       text: extractedText,
@@ -75,23 +84,50 @@ export async function extractTextFromImageWithChatGPT4o(imageUrl: string): Promi
   try {
     console.log('开始ChatGPT-4o OCR处理:', imageUrl);
     
-    // 简化prompt，避免被误判
-    const prompt = `Please read and transcribe all text visible in this image. Return only the text content, exactly as it appears.`;
-
-    const text = await callGpt4oWithImage({
-      imageUrl,
-      promptText: prompt
-    });
+    // 尝试多个不同的prompt
+    const prompts = [
+      `Extract all text from this image.`,
+      `What text do you see in this image?`,
+      `Read the text in this image and return it exactly as shown.`
+    ];
     
-    console.log('ChatGPT-4o OCR处理完成，文字长度:', text.length);
-    console.log('ChatGPT-4o OCR结果预览:', text.substring(0, 100));
+    for (let i = 0; i < prompts.length; i++) {
+      try {
+        console.log(`尝试prompt ${i + 1}:`, prompts[i]);
+        
+        const text = await callGpt4oWithImage({
+          imageUrl,
+          promptText: prompts[i]
+        });
+        
+        console.log('ChatGPT-4o OCR处理完成，文字长度:', text.length);
+        console.log('ChatGPT-4o OCR结果预览:', text.substring(0, 100));
+        
+        // 检查是否是有效结果
+        if (text && 
+            !text.includes("I'm sorry") && 
+            !text.includes("I can't") && 
+            !text.includes("I cannot") &&
+            text.length > 5) {
+          
+          return {
+            text: text.trim(),
+            confidence: 0.98,
+            language: 'auto',
+            provider: 'chatgpt-4o',
+          };
+        }
+        
+        console.log(`Prompt ${i + 1} 返回无效结果，尝试下一个...`);
+        
+      } catch (error) {
+        console.log(`Prompt ${i + 1} 失败:`, error);
+        if (i === prompts.length - 1) throw error;
+      }
+    }
     
-    return {
-      text: text.trim(),
-      confidence: 0.98, // ChatGPT-4o通常非常准确
-      language: 'auto',
-      provider: 'chatgpt-4o',
-    };
+    throw new Error('所有prompt都失败了');
+    
   } catch (error) {
     console.error('ChatGPT-4o OCR处理失败:', error);
     return {

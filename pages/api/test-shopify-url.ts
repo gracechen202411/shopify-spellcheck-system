@@ -3,6 +3,7 @@ import { extractTextFromImageSmart } from '../../lib/ocr';
 import { performSpellCheck } from '../../lib/spellCheck';
 import { sendFeishuNotification } from '../../lib/feishuNotification';
 import { saveCheckResult } from '../../lib/database';
+import { extractShopifyProductFromUrl } from '../../lib/shopifyExtractor';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -19,25 +20,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('=== 开始Shopify URL测试 ===');
     console.log('Shopify URL:', shopifyUrl);
 
-    // 从URL中提取产品信息（这里简化处理，实际应该调用Shopify API）
-    const urlParts = shopifyUrl.split('/');
-    const productId = urlParts[urlParts.length - 1] || 'unknown';
-    const shopDomain = urlParts[2] || 'unknown-shop.myshopify.com';
+    // 从Shopify URL提取真实产品信息
+    console.log('🔍 步骤0: 提取Shopify产品信息...');
+    const shopifyProduct = await extractShopifyProductFromUrl(shopifyUrl);
+    
+    if (!shopifyProduct) {
+      return res.status(400).json({ 
+        success: false,
+        error: '无法从提供的URL提取产品信息，请检查URL是否正确',
+        workflow: {
+          productExtracted: false,
+          ocrCompleted: false,
+          spellCheckCompleted: false,
+          notificationSent: false,
+          databaseSaved: false
+        }
+      });
+    }
 
-    // 模拟产品数据（实际应该从Shopify API获取）
+    // 转换为兼容格式
     const productData = {
-      id: productId,
-      title: 'Shopify测试产品 - 高质量T恤衫',
-      body_html: '<p>这是一件高质量的T恤衫，采用100%纯棉材质制作。舒适透气，适合日常穿着。</p>',
-      image_src: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&h=600&fit=crop',
-      created_at: new Date().toISOString(),
-      shop_domain: shopDomain
+      id: shopifyProduct.id,
+      title: shopifyProduct.title,
+      body_html: shopifyProduct.body_html,
+      image_src: shopifyProduct.image_src,
+      created_at: shopifyProduct.created_at,
+      shop_domain: shopifyProduct.shop_domain
     };
 
-    console.log('📦 模拟产品数据:', {
+    console.log('✅ 产品信息提取成功:', {
       id: productData.id,
       title: productData.title,
-      shop: productData.shop_domain
+      shop: productData.shop_domain,
+      hasImage: !!productData.image_src
     });
 
     let ocrText = '';
@@ -104,14 +119,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data: {
         input: {
           shopifyUrl,
-          extractedProductId: productId,
-          extractedShopDomain: shopDomain
+          extractedProductId: shopifyProduct.id,
+          extractedShopDomain: shopifyProduct.shop_domain
         },
         product: {
           id: productData.id,
           title: productData.title,
           imageUrl: productData.image_src,
-          shopDomain: productData.shop_domain
+          shopDomain: productData.shop_domain,
+          vendor: shopifyProduct.vendor,
+          productType: shopifyProduct.product_type,
+          price: shopifyProduct.price,
+          handle: shopifyProduct.handle
         },
         ocr: {
           provider: ocrProvider,
@@ -128,6 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           summary: spellCheckResult.summary
         },
         workflow: {
+          productExtracted: true,
           ocrCompleted: ocrProvider !== 'failed',
           spellCheckCompleted: true,
           notificationSent: notificationSent,
@@ -142,6 +162,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       workflow: {
+        productExtracted: false,
         ocrCompleted: false,
         spellCheckCompleted: false,
         notificationSent: false,
